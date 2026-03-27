@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peer Evaluation — Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; padding: 1.5rem 1rem 3rem; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .top-title { font-size: 20px; font-weight: 600; }
+  .top-sub { font-size: 13px; color: #666; margin-top: 3px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select { padding: 0.4rem 0.65rem; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; background: white; color: #1a1a1a; font-family: inherit; cursor: pointer; }
+  .btn { padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 13px; font-weight: 500; color: #333; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn:hover { background: #f0f0ea; }
+  .btn.dark { background: #1a1a1a; border-color: #1a1a1a; color: white; }
+  .btn.dark:hover { background: #333; }
+  .metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: white; border: 1px solid #e0e0da; border-radius: 10px; padding: 1rem 1.1rem; }
+  .metric-label { font-size: 11px; color: #999; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 5px; }
+  .metric-val { font-size: 26px; font-weight: 600; color: #1a1a1a; }
+  .metric-sub { font-size: 11px; color: #aaa; margin-top: 3px; }
+  .card { background: white; border: 1px solid #e0e0da; border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1rem; }
+  .chart-wrap { position: relative; width: 100%; }
+  .tab-row { display: flex; gap: 2px; margin-bottom: 1.25rem; border-bottom: 1px solid #e0e0da; }
+  .tab { padding: 0.5rem 1rem; font-size: 13px; font-weight: 500; color: #999; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab:hover { color: #555; }
+  .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .week-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .week-tab { padding: 3px 12px; border-radius: 99px; font-size: 12px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; transition: all 0.15s; }
+  .week-tab:hover { border-color: #999; color: #333; }
+  .week-tab.active { background: #1a1a1a; border-color: #1a1a1a; color: white; }
+  .student-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .student-table th { text-align: left; font-size: 11px; font-weight: 600; color: #999; letter-spacing: 0.04em; text-transform: uppercase; padding: 0 8px 8px 0; border-bottom: 1px solid #e8e8e4; }
+  .student-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid #f0f0ea; color: #1a1a1a; vertical-align: middle; }
+  .student-table tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .pill-hi { background: #e8f7f2; color: #085041; }
+  .pill-mid { background: #e8f2fc; color: #0C447C; }
+  .pill-lo { background: #fdf0ee; color: #712B13; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
+  .legend-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .import-hint { border: 1px dashed #ccc; border-radius: 10px; padding: 1.5rem; text-align: center; font-size: 13px; color: #aaa; }
+  .nav-links { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  .nav-link { font-size: 13px; color: #378ADD; text-decoration: none; padding: 0.3rem 0.75rem; border: 1px solid #c5ddf5; border-radius: 99px; background: #f0f7ff; }
+  .nav-link:hover { background: #daeeff; }
+  @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <div>
+      <div class="top-title">Peer Evaluation Dashboard</div>
+      <div class="top-sub" id="dashSub">Loading...</div>
+    </div>
+    <div class="controls">
+      <select id="groupSel" onchange="onGroupChange()"></select>
+      <label class="btn" for="importFile" style="cursor:pointer;">Import JSON</label>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn dark" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">← Setup</a>
+  </div>
+
+  <div class="tab-row">
+    <div class="tab active" onclick="showTab('overview',this)">Overview</div>
+    <div class="tab" onclick="showTab('students',this)">By student</div>
+    <div class="tab" onclick="showTab('weeks',this)">By week</div>
+    <div class="tab" onclick="showTab('comments',this)">Comments</div>
+  </div>
+
+  <div id="tab-overview">
+    <div class="metrics" id="metricCards"></div>
+    <div class="card">
+      <div class="card-title">Average score per criterion — all weeks</div>
+      <div class="legend" id="criteriaLegend"></div>
+      <div class="chart-wrap" style="height:260px;"><canvas id="criteriaChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Group collaboration score by week</div>
+      <div class="chart-wrap" style="height:200px;"><canvas id="collabChart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="tab-students" style="display:none;">
+    <div class="card">
+      <div class="card-title">Overall average by student</div>
+      <div class="chart-wrap" id="studentChartWrap" style="height:240px;"><canvas id="studentChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Detailed scores by student</div>
+      <table class="student-table" id="studentTable"></table>
+    </div>
+  </div>
+
+  <div id="tab-weeks" style="display:none;">
+    <div class="week-tabs" id="weekTabs"></div>
+    <div class="card">
+      <div class="card-title">Scores this week by student</div>
+      <div class="chart-wrap" id="weekChartWrap" style="height:240px;"><canvas id="weekChart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="tab-comments" style="display:none;">
+    <div class="card">
+      <div class="card-title">Instructor comments</div>
+      <div id="commentsList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CK = ['contribution','cooperation','focus','role','communicate','accuracy'];
+const CL = ['Contribution','Cooperation','Focus','Role','Communicate','Accuracy'];
+const COLORS = ['#1a1a1a','#378ADD','#1D9E75','#D85A30','#7F77DD','#BA7517'];
+
+const SAMPLE = {
+  'The Gummy Bears': [
+    { week:1, collab:4, ratings:{ Stefan:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Elisa:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Josie:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5} }, comment:'' },
+    { week:2, collab:4, ratings:{ Stefan:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5}, Elisa:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Taylor:{contribution:4,cooperation:3,focus:4,role:4,communicate:3,accuracy:4}, Sarah:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Josie:{contribution:4,cooperation:5,focus:4,role:5,communicate:5,accuracy:4} }, comment:'Taylor seemed distracted this week.' },
+    { week:3, collab:5, ratings:{ Stefan:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5}, Elisa:{contribution:4,cooperation:4,focus:4,role:4,communicate:4,accuracy:4}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5}, Josie:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5} }, comment:'' },
+  ],
+};
+
+let allData = {};
+try { const s=localStorage.getItem('peer_responses_all'); if(s) allData=JSON.parse(s); } catch(e){}
+if (!Object.keys(allData).length) allData = SAMPLE;
+
+let currentGroup = Object.keys(allData)[0]||'';
+let currentTab = 'overview';
+let currentWeek = null;
+let charts = {};
+
+function gd() { return allData[currentGroup]||[]; }
+function studs() { const d=gd(); return d.length?Object.keys(d[0].ratings):[]; }
+function weeks() { return [...new Set(gd().map(r=>r.week))].sort((a,b)=>a-b); }
+
+function avg(vals) { const f=vals.filter(Boolean); return f.length?f.reduce((a,b)=>a+b,0)/f.length:0; }
+function studentAvg(s) { const d=gd(); return avg(CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]))); }
+function criterionAvg(k) { const d=gd(); const ss=studs(); return avg(ss.flatMap(s=>d.map(r=>r.ratings[s]?.[k]))); }
+function pillCls(v) { return v>=4.5?'pill-hi':v>=3?'pill-mid':'pill-lo'; }
+
+function destroy(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+function populateSelect() {
+  const sel=document.getElementById('groupSel');
+  sel.innerHTML=Object.keys(allData).map(g=>`<option value="${g}"${g===currentGroup?' selected':''}>${g}</option>`).join('');
+}
+
+function onGroupChange() {
+  currentGroup=document.getElementById('groupSel').value;
+  currentWeek=weeks()[0]||null;
+  renderAll();
+}
+
+function updateSub() {
+  try {
+    const cfg=JSON.parse(localStorage.getItem('peer_eval_config')||'{}');
+    document.getElementById('dashSub').textContent=`${cfg.className||''}${cfg.semester?' · '+cfg.semester:''}`;
+  } catch(e){}
+}
+
+function renderMetrics() {
+  const d=gd(); const ss=studs();
+  const collabA = d.length?(d.reduce((a,r)=>a+r.collab,0)/d.length).toFixed(1):'—';
+  const allS=ss.flatMap(s=>CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]).filter(Boolean)));
+  const oa=allS.length?(allS.reduce((a,b)=>a+b,0)/allS.length).toFixed(1):'—';
+  const top=ss.length?ss.reduce((b,s)=>studentAvg(s)>studentAvg(b)?s:b,ss[0]):'—';
+  document.getElementById('metricCards').innerHTML=`
+    <div class="metric"><div class="metric-label">Responses</div><div class="metric-val">${d.length}</div><div class="metric-sub">across ${weeks().length} weeks</div></div>
+    <div class="metric"><div class="metric-label">Overall avg</div><div class="metric-val">${oa}</div><div class="metric-sub">out of 5.0</div></div>
+    <div class="metric"><div class="metric-label">Collab avg</div><div class="metric-val">${collabA}</div><div class="metric-sub">group score</div></div>
+    <div class="metric"><div class="metric-label">Top performer</div><div class="metric-val" style="font-size:16px;">${top}</div><div class="metric-sub">highest avg</div></div>`;
+}
+
+function renderCriteria() {
+  destroy('criteriaChart');
+  const data=CK.map(k=>parseFloat(criterionAvg(k).toFixed(2)));
+  document.getElementById('criteriaLegend').innerHTML=CL.map((l,i)=>
+    `<div class="legend-item"><div class="legend-sq" style="background:${COLORS[i]};"></div>${l}: ${data[i].toFixed(1)}</div>`
+  ).join('');
+  charts['criteriaChart']=new Chart(document.getElementById('criteriaChart'),{
+    type:'bar',
+    data:{ labels:CL, datasets:[{data,backgroundColor:COLORS,borderRadius:4,borderSkipped:false}] },
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
+  });
+}
+
+function renderCollab() {
+  destroy('collabChart');
+  const d=gd(); const wks=weeks();
+  const data=wks.map(w=>{ const rs=d.filter(r=>r.week===w); return rs.length?parseFloat((rs.reduce((a,r)=>a+r.collab,0)/rs.length).toFixed(2)):0; });
+  charts['collabChart']=new Chart(document.getElementById('collabChart'),{
+    type:'line',
+    data:{ labels:wks.map(w=>`Week ${w}`), datasets:[{data,borderColor:'#1a1a1a',backgroundColor:'rgba(26,26,26,0.06)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#1a1a1a'}] },
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
+  });
+}
+
+function renderStudentChart() {
+  destroy('studentChart');
+  const ss=studs();
+  const h=Math.max(240,ss.length*44+60);
+  document.getElementById('studentChartWrap').style.height=h+'px';
+  const data=ss.map(s=>parseFloat(studentAvg(s).toFixed(2)));
+  charts['studentChart']=new Chart(document.getElementById('studentChart'),{
+    type:'bar',
+    data:{ labels:ss, datasets:[{data,backgroundColor:ss.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderSkipped:false}] },
+    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{ x:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+  });
+}
+
+function renderStudentTable() {
+  const ss=studs(); const d=gd();
+  const th=`<thead><tr><th>Student</th>${CL.map(l=>`<th>${l}</th>`).join('')}<th>Overall</th></tr></thead>`;
+  const tb=ss.map(s=>{
+    const cells=CK.map(k=>{ const v=avg(d.map(r=>r.ratings[s]?.[k]).filter(Boolean)); return `<td><span class="pill ${pillCls(v)}">${v.toFixed(1)}</span></td>`; }).join('');
+    const ov=studentAvg(s);
+    return `<tr><td style="font-weight:600;">${s}</td>${cells}<td><span class="pill ${pillCls(ov)}">${ov.toFixed(1)}</span></td></tr>`;
+  }).join('');
+  document.getElementById('studentTable').innerHTML=th+`<tbody>${tb}</tbody>`;
+}
+
+function renderWeekTabs() {
+  const wks=weeks(); if(!currentWeek&&wks.length) currentWeek=wks[0];
+  document.getElementById('weekTabs').innerHTML=wks.map(w=>
+    `<div class="week-tab ${w===currentWeek?'active':''}" onclick="selectWeek(${w})">Week ${w}</div>`
+  ).join('');
+}
+
+function selectWeek(w) { currentWeek=w; renderWeekTabs(); renderWeekChart(); }
+
+function renderWeekChart() {
+  destroy('weekChart');
+  const ss=studs(); const d=gd().filter(r=>r.week===currentWeek);
+  const h=Math.max(240,ss.length*44+60);
+  document.getElementById('weekChartWrap').style.height=h+'px';
+  if(!d.length) return;
+  const datasets=CK.map((k,i)=>({
+    label:CL[i],
+    data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)):0; }),
+    backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false,
+  }));
+  charts['weekChart']=new Chart(document.getElementById('weekChart'),{
+    type:'bar',
+    data:{ labels:ss, datasets },
+    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{ x:{min:0,max:5,stacked:false,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+  });
+}
+
+function renderComments() {
+  const comments=gd().filter(r=>r.comment&&r.comment.trim());
+  document.getElementById('commentsList').innerHTML=comments.length
+    ? comments.map(r=>`<div style="padding:0.7rem 0;border-bottom:1px solid #f0f0ea;font-size:14px;color:#444;line-height:1.6;"><span style="font-size:11px;color:#aaa;margin-right:8px;font-weight:600;">WEEK ${r.week}</span>${r.comment}</div>`).join('')
+    : '<div style="font-size:13px;color:#aaa;">No comments for this group yet.</div>';
+}
+
+function showTab(name,el) {
+  ['overview','students','weeks','comments'].forEach(t=>document.getElementById('tab-'+t).style.display=t===name?'':'none');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); currentTab=name;
+  if(name==='students'){renderStudentChart();renderStudentTable();}
+  if(name==='weeks'){renderWeekTabs();renderWeekChart();}
+  if(name==='comments') renderComments();
+}
+
+function importData(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try {
+      const p=JSON.parse(ev.target.result);
+      if(Array.isArray(p)){ allData[currentGroup]=p; }
+      else if(typeof p==='object'){ Object.assign(allData,p); currentGroup=Object.keys(allData)[0]; }
+      try{localStorage.setItem('peer_responses_all',JSON.stringify(allData));}catch(e2){}
+      populateSelect(); renderAll();
+    } catch(err){ alert('Could not parse JSON file.'); }
+  };
+  reader.readAsText(file);
+}
+
+function exportCSV() {
+  const ss=studs(); const d=gd();
+  const header=['Week','Student',...CL,'Overall','Collab','Comment'];
+  const rows=d.flatMap(r=>ss.map(s=>{
+    const scores=CK.map(k=>r.ratings[s]?.[k]??'');
+    const ov=scores.filter(Boolean).length?(scores.filter(Boolean).reduce((a,b)=>a+b,0)/scores.filter(Boolean).length).toFixed(2):'';
+    return [r.week,s,...scores,ov,r.collab,`"${(r.comment||'').replace(/"/g,'""')}"`].join(',');
+  }));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([[header,...rows].join('\n')],{type:'text/csv'}));
+  a.download=`${currentGroup}_peer_eval.csv`;
+  a.click();
+}
+
+function renderAll() {
+  updateSub();
+  renderMetrics(); renderCriteria(); renderCollab();
+  if(currentTab==='students'){renderStudentChart();renderStudentTable();}
+  if(currentTab==='weeks'){renderWeekTabs();renderWeekChart();}
+  if(currentTab==='comments') renderComments();
+}
+
+populateSelect();
+currentWeek=weeks()[0]||null;
+renderAll();
+</script>
+</body>
+</html>
