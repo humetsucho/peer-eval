@@ -8,7 +8,7 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; padding: 1.5rem 1rem 3rem; }
   .wrap { max-width: 860px; margin: 0 auto; }
-  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px; }
   .top-title { font-size: 20px; font-weight: 600; }
   .top-sub { font-size: 13px; color: #666; margin-top: 3px; }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -17,6 +17,10 @@
   .btn:hover { background: #f0f0ea; }
   .btn.dark { background: #1a1a1a; border-color: #1a1a1a; color: white; }
   .btn.dark:hover { background: #333; }
+  .class-tabs-row { display: flex; align-items: center; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .class-tab { padding: 0.4rem 1rem; border-radius: 99px; font-size: 13px; font-weight: 500; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; transition: all 0.15s; }
+  .class-tab:hover { border-color: #999; color: #333; }
+  .class-tab.active { background: #1a1a1a; border-color: #1a1a1a; color: white; }
   .metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
   .metric { background: white; border: 1px solid #e0e0da; border-radius: 10px; padding: 1rem 1.1rem; }
   .metric-label { font-size: 11px; color: #999; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 5px; }
@@ -44,8 +48,7 @@
   .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
   .legend-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-  .import-hint { border: 1px dashed #ccc; border-radius: 10px; padding: 1.5rem; text-align: center; font-size: 13px; color: #aaa; }
-  .nav-links { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  .nav-links { display: flex; gap: 8px; margin-bottom: 1.25rem; }
   .nav-link { font-size: 13px; color: #378ADD; text-decoration: none; padding: 0.3rem 0.75rem; border: 1px solid #c5ddf5; border-radius: 99px; background: #f0f7ff; }
   .nav-link:hover { background: #daeeff; }
   @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2,1fr); } }
@@ -56,7 +59,7 @@
   <div class="top-bar">
     <div>
       <div class="top-title">Peer Evaluation Dashboard</div>
-      <div class="top-sub" id="dashSub">Loading...</div>
+      <div class="top-sub" id="dashSub"></div>
     </div>
     <div class="controls">
       <select id="groupSel" onchange="onGroupChange()"></select>
@@ -69,6 +72,8 @@
   <div class="nav-links">
     <a class="nav-link" href="index.html">← Setup</a>
   </div>
+
+  <div class="class-tabs-row" id="classTabs"></div>
 
   <div class="tab-row">
     <div class="tab active" onclick="showTab('overview',this)">Overview</div>
@@ -89,7 +94,6 @@
       <div class="chart-wrap" style="height:200px;"><canvas id="collabChart"></canvas></div>
     </div>
   </div>
-
   <div id="tab-students" style="display:none;">
     <div class="card">
       <div class="card-title">Overall average by student</div>
@@ -100,7 +104,6 @@
       <table class="student-table" id="studentTable"></table>
     </div>
   </div>
-
   <div id="tab-weeks" style="display:none;">
     <div class="week-tabs" id="weekTabs"></div>
     <div class="card">
@@ -108,7 +111,6 @@
       <div class="chart-wrap" id="weekChartWrap" style="height:240px;"><canvas id="weekChart"></canvas></div>
     </div>
   </div>
-
   <div id="tab-comments" style="display:none;">
     <div class="card">
       <div class="card-title">Instructor comments</div>
@@ -124,54 +126,82 @@ const CL = ['Contribution','Cooperation','Focus','Role','Communicate','Accuracy'
 const COLORS = ['#1a1a1a','#378ADD','#1D9E75','#D85A30','#7F77DD','#BA7517'];
 
 const SAMPLE = {
-  'The Gummy Bears': [
-    { week:1, collab:4, ratings:{ Stefan:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Elisa:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Josie:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5} }, comment:'' },
-    { week:2, collab:4, ratings:{ Stefan:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5}, Elisa:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Taylor:{contribution:4,cooperation:3,focus:4,role:4,communicate:3,accuracy:4}, Sarah:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Josie:{contribution:4,cooperation:5,focus:4,role:5,communicate:5,accuracy:4} }, comment:'Taylor seemed distracted this week.' },
-    { week:3, collab:5, ratings:{ Stefan:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5}, Elisa:{contribution:4,cooperation:4,focus:4,role:4,communicate:4,accuracy:4}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5}, Josie:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5} }, comment:'' },
-  ],
+  'c1': {
+    'The Gummy Bears': [
+      { week:1, collab:4, ratings:{ Stefan:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Elisa:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Josie:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5} }, comment:'' },
+      { week:2, collab:4, ratings:{ Stefan:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5}, Elisa:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Taylor:{contribution:4,cooperation:3,focus:4,role:4,communicate:3,accuracy:4}, Sarah:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Josie:{contribution:4,cooperation:5,focus:4,role:5,communicate:5,accuracy:4} }, comment:'Taylor seemed distracted.' },
+    ]
+  },
+  'c2': {
+    'Group 1': [
+      { week:1, collab:3, ratings:{ Alice:{contribution:3,cooperation:3,focus:4,role:3,communicate:3,accuracy:4}, Bob:{contribution:4,cooperation:4,focus:3,role:4,communicate:4,accuracy:3}, Carol:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, David:{contribution:2,cooperation:3,focus:2,role:3,communicate:3,accuracy:3}, Eve:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4} }, comment:'' },
+    ]
+  }
 };
 
-let allData = {};
-try { const s=localStorage.getItem('peer_responses_all'); if(s) allData=JSON.parse(s); } catch(e){}
-if (!Object.keys(allData).length) allData = SAMPLE;
+let allData;
+try { allData = JSON.parse(localStorage.getItem('peer_responses_v2')); if(!allData) throw 0; } catch(e) { allData = SAMPLE; }
 
-let currentGroup = Object.keys(allData)[0]||'';
+let config;
+try { config = JSON.parse(localStorage.getItem('peer_eval_config_v2')); if(!config) throw 0; } catch(e) {
+  config = { classes: [{ id:'c1', className:'Section 1', semester:'Winter 26' }, { id:'c2', className:'Section 2', semester:'Winter 26' }], activeClass:'c1' };
+}
+
+let activeClassId = config.classes[0]?.id || 'c1';
+let currentGroup = '';
 let currentTab = 'overview';
 let currentWeek = null;
 let charts = {};
 
-function gd() { return allData[currentGroup]||[]; }
+function classData() { return allData[activeClassId] || {}; }
+function gd() { return classData()[currentGroup] || []; }
 function studs() { const d=gd(); return d.length?Object.keys(d[0].ratings):[]; }
 function weeks() { return [...new Set(gd().map(r=>r.week))].sort((a,b)=>a-b); }
-
-function avg(vals) { const f=vals.filter(Boolean); return f.length?f.reduce((a,b)=>a+b,0)/f.length:0; }
+function avg(vals) { const f=vals.filter(v=>v!=null&&v!==undefined&&v!==''); return f.length?f.reduce((a,b)=>a+b,0)/f.length:0; }
 function studentAvg(s) { const d=gd(); return avg(CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]))); }
 function criterionAvg(k) { const d=gd(); const ss=studs(); return avg(ss.flatMap(s=>d.map(r=>r.ratings[s]?.[k]))); }
 function pillCls(v) { return v>=4.5?'pill-hi':v>=3?'pill-mid':'pill-lo'; }
-
 function destroy(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
 
-function populateSelect() {
-  const sel=document.getElementById('groupSel');
-  sel.innerHTML=Object.keys(allData).map(g=>`<option value="${g}"${g===currentGroup?' selected':''}>${g}</option>`).join('');
+function renderClassTabs() {
+  document.getElementById('classTabs').innerHTML = config.classes.map(c =>
+    `<div class="class-tab ${c.id===activeClassId?'active':''}" onclick="switchClass('${c.id}')">${c.className}</div>`
+  ).join('');
+}
+
+function switchClass(id) {
+  activeClassId = id;
+  const groups = Object.keys(classData());
+  currentGroup = groups[0] || '';
+  currentWeek = null;
+  renderClassTabs();
+  populateGroupSelect();
+  updateSub();
+  renderAll();
+}
+
+function populateGroupSelect() {
+  const groups = Object.keys(classData());
+  if (!currentGroup || !groups.includes(currentGroup)) currentGroup = groups[0] || '';
+  document.getElementById('groupSel').innerHTML = groups.length
+    ? groups.map(g=>`<option value="${g}"${g===currentGroup?' selected':''}>${g}</option>`).join('')
+    : '<option>No data yet</option>';
 }
 
 function onGroupChange() {
-  currentGroup=document.getElementById('groupSel').value;
-  currentWeek=weeks()[0]||null;
+  currentGroup = document.getElementById('groupSel').value;
+  currentWeek = weeks()[0] || null;
   renderAll();
 }
 
 function updateSub() {
-  try {
-    const cfg=JSON.parse(localStorage.getItem('peer_eval_config')||'{}');
-    document.getElementById('dashSub').textContent=`${cfg.className||''}${cfg.semester?' · '+cfg.semester:''}`;
-  } catch(e){}
+  const cls = config.classes.find(c=>c.id===activeClassId);
+  document.getElementById('dashSub').textContent = cls ? `${cls.className} · ${cls.semester}` : '';
 }
 
 function renderMetrics() {
   const d=gd(); const ss=studs();
-  const collabA = d.length?(d.reduce((a,r)=>a+r.collab,0)/d.length).toFixed(1):'—';
+  const collabA=d.length?(d.reduce((a,r)=>a+r.collab,0)/d.length).toFixed(1):'—';
   const allS=ss.flatMap(s=>CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]).filter(Boolean)));
   const oa=allS.length?(allS.reduce((a,b)=>a+b,0)/allS.length).toFixed(1):'—';
   const top=ss.length?ss.reduce((b,s)=>studentAvg(s)>studentAvg(b)?s:b,ss[0]):'—';
@@ -189,8 +219,7 @@ function renderCriteria() {
     `<div class="legend-item"><div class="legend-sq" style="background:${COLORS[i]};"></div>${l}: ${data[i].toFixed(1)}</div>`
   ).join('');
   charts['criteriaChart']=new Chart(document.getElementById('criteriaChart'),{
-    type:'bar',
-    data:{ labels:CL, datasets:[{data,backgroundColor:COLORS,borderRadius:4,borderSkipped:false}] },
+    type:'bar', data:{ labels:CL, datasets:[{data,backgroundColor:COLORS,borderRadius:4,borderSkipped:false}] },
     options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
   });
@@ -201,8 +230,7 @@ function renderCollab() {
   const d=gd(); const wks=weeks();
   const data=wks.map(w=>{ const rs=d.filter(r=>r.week===w); return rs.length?parseFloat((rs.reduce((a,r)=>a+r.collab,0)/rs.length).toFixed(2)):0; });
   charts['collabChart']=new Chart(document.getElementById('collabChart'),{
-    type:'line',
-    data:{ labels:wks.map(w=>`Week ${w}`), datasets:[{data,borderColor:'#1a1a1a',backgroundColor:'rgba(26,26,26,0.06)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#1a1a1a'}] },
+    type:'line', data:{ labels:wks.map(w=>`Week ${w}`), datasets:[{data,borderColor:'#1a1a1a',backgroundColor:'rgba(26,26,26,0.06)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#1a1a1a'}] },
     options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
   });
@@ -210,13 +238,10 @@ function renderCollab() {
 
 function renderStudentChart() {
   destroy('studentChart');
-  const ss=studs();
-  const h=Math.max(240,ss.length*44+60);
+  const ss=studs(); const h=Math.max(240,ss.length*44+60);
   document.getElementById('studentChartWrap').style.height=h+'px';
-  const data=ss.map(s=>parseFloat(studentAvg(s).toFixed(2)));
   charts['studentChart']=new Chart(document.getElementById('studentChart'),{
-    type:'bar',
-    data:{ labels:ss, datasets:[{data,backgroundColor:ss.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderSkipped:false}] },
+    type:'bar', data:{ labels:ss, datasets:[{data:ss.map(s=>parseFloat(studentAvg(s).toFixed(2))),backgroundColor:ss.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderSkipped:false}] },
     options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{ x:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
   });
@@ -248,16 +273,11 @@ function renderWeekChart() {
   const h=Math.max(240,ss.length*44+60);
   document.getElementById('weekChartWrap').style.height=h+'px';
   if(!d.length) return;
-  const datasets=CK.map((k,i)=>({
-    label:CL[i],
-    data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)):0; }),
-    backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false,
-  }));
   charts['weekChart']=new Chart(document.getElementById('weekChart'),{
     type:'bar',
-    data:{ labels:ss, datasets },
+    data:{ labels:ss, datasets:CK.map((k,i)=>({ label:CL[i], data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)):0; }), backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false })) },
     options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{ x:{min:0,max:5,stacked:false,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+      scales:{ x:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
   });
 }
 
@@ -283,10 +303,15 @@ function importData(e) {
   reader.onload=ev=>{
     try {
       const p=JSON.parse(ev.target.result);
-      if(Array.isArray(p)){ allData[currentGroup]=p; }
-      else if(typeof p==='object'){ Object.assign(allData,p); currentGroup=Object.keys(allData)[0]; }
-      try{localStorage.setItem('peer_responses_all',JSON.stringify(allData));}catch(e2){}
-      populateSelect(); renderAll();
+      if(Array.isArray(p)){
+        if(!allData[activeClassId]) allData[activeClassId]={};
+        allData[activeClassId][currentGroup||'Imported']=p;
+      } else if(typeof p==='object'){
+        if(p.classes) { Object.assign(allData, p); }
+        else { Object.assign(allData[activeClassId]=(allData[activeClassId]||{}), p); }
+      }
+      try{localStorage.setItem('peer_responses_v2',JSON.stringify(allData));}catch(e2){}
+      populateGroupSelect(); renderAll();
     } catch(err){ alert('Could not parse JSON file.'); }
   };
   reader.readAsText(file);
@@ -307,15 +332,16 @@ function exportCSV() {
 }
 
 function renderAll() {
-  updateSub();
   renderMetrics(); renderCriteria(); renderCollab();
   if(currentTab==='students'){renderStudentChart();renderStudentTable();}
   if(currentTab==='weeks'){renderWeekTabs();renderWeekChart();}
   if(currentTab==='comments') renderComments();
 }
 
-populateSelect();
-currentWeek=weeks()[0]||null;
+renderClassTabs();
+populateGroupSelect();
+updateSub();
+currentWeek = weeks()[0] || null;
 renderAll();
 </script>
 </body>
