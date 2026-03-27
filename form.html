@@ -49,7 +49,7 @@
 <div class="app" id="app"></div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaSKQJ76Ihv_mZxSvWL3wUfZwz8MHZ0mdKUKLvpEDHrlKv3yJNHbAFRlMAjGsjA9XL7Q/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzSN1-lNOTnrN_6Zoy9sByT5Klt0yLjHDdVK_nbIXFhDDGjPaC2H_GXyfe7Vn06rPC/exec';
 
 function decodeConfig(str) {
   try { return JSON.parse(decodeURIComponent(escape(atob(str)))); } catch(e) { return null; }
@@ -212,12 +212,28 @@ async function submit() {
   };
 
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = SCRIPT_URL;
+    form.target = 'hidden_iframe';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+
+    const iframe = document.createElement('iframe');
+    iframe.name = 'hidden_iframe';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+
+    iframe.onload = () => {
+      document.body.removeChild(form);
+      document.body.removeChild(iframe);
+    };
+
+    form.submit();
     renderDone();
   } catch(e) {
     state.submitting = false;
