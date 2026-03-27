@@ -158,9 +158,10 @@ function gd() { return classData()[currentGroup] || []; }
 function studs() { const d=gd(); return d.length?Object.keys(d[0].ratings):[]; }
 function weeks() { return [...new Set(gd().map(r=>r.week))].sort((a,b)=>a-b); }
 function avg(vals) { const f=vals.filter(v=>v!=null&&v!==undefined&&v!==''); return f.length?f.reduce((a,b)=>a+b,0)/f.length:0; }
+function toPercent(v) { return Math.round(v/5*100); }
 function studentAvg(s) { const d=gd(); return avg(CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]))); }
 function criterionAvg(k) { const d=gd(); const ss=studs(); return avg(ss.flatMap(s=>d.map(r=>r.ratings[s]?.[k]))); }
-function pillCls(v) { return v>=4.5?'pill-hi':v>=3?'pill-mid':'pill-lo'; }
+function pillCls(pct) { return pct>=90?'pill-hi':pct>=60?'pill-mid':'pill-lo'; }
 function destroy(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
 
 function renderClassTabs() {
@@ -201,38 +202,39 @@ function updateSub() {
 
 function renderMetrics() {
   const d=gd(); const ss=studs();
-  const collabA=d.length?(d.reduce((a,r)=>a+r.collab,0)/d.length).toFixed(1):'—';
+  const collabRaw=d.length?d.reduce((a,r)=>a+r.collab,0)/d.length:null;
+  const collabPct=collabRaw!==null?toPercent(collabRaw)+'%':'—';
   const allS=ss.flatMap(s=>CK.flatMap(k=>d.map(r=>r.ratings[s]?.[k]).filter(Boolean)));
-  const oa=allS.length?(allS.reduce((a,b)=>a+b,0)/allS.length).toFixed(1):'—';
+  const oaPct=allS.length?toPercent(allS.reduce((a,b)=>a+b,0)/allS.length)+'%':'—';
   const top=ss.length?ss.reduce((b,s)=>studentAvg(s)>studentAvg(b)?s:b,ss[0]):'—';
   document.getElementById('metricCards').innerHTML=`
     <div class="metric"><div class="metric-label">Responses</div><div class="metric-val">${d.length}</div><div class="metric-sub">across ${weeks().length} weeks</div></div>
-    <div class="metric"><div class="metric-label">Overall avg</div><div class="metric-val">${oa}</div><div class="metric-sub">out of 5.0</div></div>
-    <div class="metric"><div class="metric-label">Collab avg</div><div class="metric-val">${collabA}</div><div class="metric-sub">group score</div></div>
+    <div class="metric"><div class="metric-label">Overall avg</div><div class="metric-val">${oaPct}</div><div class="metric-sub">out of 100%</div></div>
+    <div class="metric"><div class="metric-label">Collab avg</div><div class="metric-val">${collabPct}</div><div class="metric-sub">group score</div></div>
     <div class="metric"><div class="metric-label">Top performer</div><div class="metric-val" style="font-size:16px;">${top}</div><div class="metric-sub">highest avg</div></div>`;
 }
 
 function renderCriteria() {
   destroy('criteriaChart');
-  const data=CK.map(k=>parseFloat(criterionAvg(k).toFixed(2)));
+  const data=CK.map(k=>toPercent(criterionAvg(k)));
   document.getElementById('criteriaLegend').innerHTML=CL.map((l,i)=>
-    `<div class="legend-item"><div class="legend-sq" style="background:${COLORS[i]};"></div>${l}: ${data[i].toFixed(1)}</div>`
+    `<div class="legend-item"><div class="legend-sq" style="background:${COLORS[i]};"></div>${l}: ${data[i]}%</div>`
   ).join('');
   charts['criteriaChart']=new Chart(document.getElementById('criteriaChart'),{
     type:'bar', data:{ labels:CL, datasets:[{data,backgroundColor:COLORS,borderRadius:4,borderSkipped:false}] },
-    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}%`}}},
+      scales:{ y:{min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
   });
 }
 
 function renderCollab() {
   destroy('collabChart');
   const d=gd(); const wks=weeks();
-  const data=wks.map(w=>{ const rs=d.filter(r=>r.week===w); return rs.length?parseFloat((rs.reduce((a,r)=>a+r.collab,0)/rs.length).toFixed(2)):0; });
+  const data=wks.map(w=>{ const rs=d.filter(r=>r.week===w); return rs.length?toPercent(rs.reduce((a,r)=>a+r.collab,0)/rs.length):0; });
   charts['collabChart']=new Chart(document.getElementById('collabChart'),{
     type:'line', data:{ labels:wks.map(w=>`Week ${w}`), datasets:[{data,borderColor:'#1a1a1a',backgroundColor:'rgba(26,26,26,0.06)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#1a1a1a'}] },
-    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{ y:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}%`}}},
+      scales:{ y:{min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}, x:{ticks:{font:{size:11}},grid:{display:false}} } }
   });
 }
 
@@ -241,9 +243,9 @@ function renderStudentChart() {
   const ss=studs(); const h=Math.max(240,ss.length*44+60);
   document.getElementById('studentChartWrap').style.height=h+'px';
   charts['studentChart']=new Chart(document.getElementById('studentChart'),{
-    type:'bar', data:{ labels:ss, datasets:[{data:ss.map(s=>parseFloat(studentAvg(s).toFixed(2))),backgroundColor:ss.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderSkipped:false}] },
-    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{ x:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+    type:'bar', data:{ labels:ss, datasets:[{data:ss.map(s=>toPercent(studentAvg(s))),backgroundColor:ss.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderSkipped:false}] },
+    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x}%`}}},
+      scales:{ x:{min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
   });
 }
 
@@ -251,9 +253,9 @@ function renderStudentTable() {
   const ss=studs(); const d=gd();
   const th=`<thead><tr><th>Student</th>${CL.map(l=>`<th>${l}</th>`).join('')}<th>Overall</th></tr></thead>`;
   const tb=ss.map(s=>{
-    const cells=CK.map(k=>{ const v=avg(d.map(r=>r.ratings[s]?.[k]).filter(Boolean)); return `<td><span class="pill ${pillCls(v)}">${v.toFixed(1)}</span></td>`; }).join('');
-    const ov=studentAvg(s);
-    return `<tr><td style="font-weight:600;">${s}</td>${cells}<td><span class="pill ${pillCls(ov)}">${ov.toFixed(1)}</span></td></tr>`;
+    const cells=CK.map(k=>{ const pct=toPercent(avg(d.map(r=>r.ratings[s]?.[k]).filter(Boolean))); return `<td><span class="pill ${pillCls(pct)}">${pct}%</span></td>`; }).join('');
+    const ovPct=toPercent(studentAvg(s));
+    return `<tr><td style="font-weight:600;">${s}</td>${cells}<td><span class="pill ${pillCls(ovPct)}">${ovPct}%</span></td></tr>`;
   }).join('');
   document.getElementById('studentTable').innerHTML=th+`<tbody>${tb}</tbody>`;
 }
@@ -275,9 +277,9 @@ function renderWeekChart() {
   if(!d.length) return;
   charts['weekChart']=new Chart(document.getElementById('weekChart'),{
     type:'bar',
-    data:{ labels:ss, datasets:CK.map((k,i)=>({ label:CL[i], data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)):0; }), backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false })) },
-    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{ x:{min:0,max:5,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+    data:{ labels:ss, datasets:CK.map((k,i)=>({ label:CL[i], data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?toPercent(vals.reduce((a,b)=>a+b,0)/vals.length):0; }), backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false })) },
+    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.x}%`}}},
+      scales:{ x:{min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
   });
 }
 
@@ -319,11 +321,12 @@ function importData(e) {
 
 function exportCSV() {
   const ss=studs(); const d=gd();
-  const header=['Week','Student',...CL,'Overall','Collab','Comment'];
+  const header=['Week','Student',...CL.map(l=>l+' (%)'), 'Overall (%)','Collab (%)','Comment'];
   const rows=d.flatMap(r=>ss.map(s=>{
-    const scores=CK.map(k=>r.ratings[s]?.[k]??'');
-    const ov=scores.filter(Boolean).length?(scores.filter(Boolean).reduce((a,b)=>a+b,0)/scores.filter(Boolean).length).toFixed(2):'';
-    return [r.week,s,...scores,ov,r.collab,`"${(r.comment||'').replace(/"/g,'""')}"`].join(',');
+    const scores=CK.map(k=>r.ratings[s]?.[k]!=null?toPercent(r.ratings[s][k]):'');
+    const ov=scores.filter(v=>v!=='').length?Math.round(scores.filter(v=>v!=='').reduce((a,b)=>a+b,0)/scores.filter(v=>v!=='').length):'';
+    const collabPct=r.collab?toPercent(r.collab):'';
+    return [r.week,s,...scores,ov,collabPct,`"${(r.comment||'').replace(/"/g,'""')}"`].join(',');
   }));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[header,...rows].join('\n')],{type:'text/csv'}));
