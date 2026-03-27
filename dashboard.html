@@ -372,12 +372,69 @@ function renderWeekChart() {
   const h=Math.max(240,ss.length*44+60);
   document.getElementById('weekChartWrap').style.height=h+'px';
   if(!d.length) return;
+
+  // Overall avg per student for this week (used for label on last dataset)
+  const overallThisWeek = ss.map(s => {
+    const vals = CK.flatMap(k => d.map(r => r.ratings[s]?.[k]).filter(v => v != null && v !== ''));
+    return vals.length ? toPercent(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  });
+
+  const datasets = CK.map((k,i) => ({
+    label: CL[i],
+    data: ss.map(s => { const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?toPercent(vals.reduce((a,b)=>a+b,0)/vals.length):0; }),
+    backgroundColor: COLORS[i],
+    borderRadius: 2,
+    borderSkipped: false,
+    // Only the last dataset carries the overall label
+    datalabels: i === CK.length - 1 ? {
+      anchor: 'end', align: 'right', offset: 4,
+      font: { size: 11, weight: '600' },
+      color: '#1a1a1a',
+      formatter: (_, ctx) => overallThisWeek[ctx.dataIndex] + '%'
+    } : { display: false }
+  }));
+
   charts['weekChart']=new Chart(document.getElementById('weekChart'),{
     type:'bar',
-    data:{ labels:ss, datasets:CK.map((k,i)=>({ label:CL[i], data:ss.map(s=>{ const vals=d.map(r=>r.ratings[s]?.[k]).filter(Boolean); return vals.length?toPercent(vals.reduce((a,b)=>a+b,0)/vals.length):0; }), backgroundColor:COLORS[i], borderRadius:2, borderSkipped:false })) },
-    options:{ indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.x}%`}}},
-      scales:{ x:{min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}, y:{ticks:{font:{size:12}},grid:{display:false}} } }
+    data:{ labels:ss, datasets },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout: { padding: { right: 42 } },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.x}%`,
+          footer: ctxArr => {
+            const idx = ctxArr[0]?.dataIndex;
+            return idx != null ? `Overall: ${overallThisWeek[idx]}%` : '';
+          }
+        }}
+      },
+      scales:{
+        x:{ min:0,max:100,ticks:{stepSize:20,font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{ ticks:{font:{size:12},callback:(_, i) => `${ss[i]}  ${overallThisWeek[i]}%`},grid:{display:false}}
+      }
+    }
   });
+
+  // Draw overall labels manually via afterDraw (no plugin needed)
+  const origDraw = charts['weekChart'].draw.bind(charts['weekChart']);
+  charts['weekChart'].draw = function() {
+    origDraw();
+    const chart = charts['weekChart'];
+    const ctx2 = chart.ctx;
+    const meta = chart.getDatasetMeta(CK.length - 1); // last dataset
+    ctx2.save();
+    ctx2.font = '600 11px "Segoe UI", system-ui, sans-serif';
+    ctx2.fillStyle = '#555';
+    ctx2.textAlign = 'left';
+    ctx2.textBaseline = 'middle';
+    meta.data.forEach((bar, i) => {
+      const x = chart.scales.x.getPixelForValue(overallThisWeek[i]) + 6;
+      const y = bar.y;
+      ctx2.fillText(overallThisWeek[i] + '%', x, y);
+    });
+    ctx2.restore();
+  };
 }
 
 function renderComments() {
