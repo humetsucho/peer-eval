@@ -182,7 +182,10 @@ function switchClass(id) {
 }
 
 function populateGroupSelect() {
-  const groups = Object.keys(classData());
+  const cls = config.classes.find(c=>c.id===activeClassId);
+  const configGroups = cls ? cls.groups.map(g=>g.name).filter(Boolean) : [];
+  const dataGroups = Object.keys(classData());
+  const groups = configGroups.length ? configGroups : dataGroups;
   if (!currentGroup || !groups.includes(currentGroup)) currentGroup = groups[0] || '';
   document.getElementById('groupSel').innerHTML = groups.length
     ? groups.map(g=>`<option value="${g}"${g===currentGroup?' selected':''}>${g}</option>`).join('')
