@@ -51,7 +51,17 @@
   .nav-links { display: flex; gap: 8px; margin-bottom: 1.25rem; }
   .nav-link { font-size: 13px; color: #378ADD; text-decoration: none; padding: 0.3rem 0.75rem; border: 1px solid #c5ddf5; border-radius: 99px; background: #f0f7ff; }
   .nav-link:hover { background: #daeeff; }
-  @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2,1fr); } }
+
+  /* ── Week summary cards ── */
+  .week-summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1rem; }
+  .week-summary .metric { border-left: 3px solid transparent; }
+  .week-summary .metric.avg  { border-left-color: #1a1a1a; }
+  .week-summary .metric.high { border-left-color: #1D9E75; }
+  .week-summary .metric.low  { border-left-color: #D85A30; }
+  .week-summary .metric.resp { border-left-color: #378ADD; }
+  .week-summary .metric-val  { font-size: 22px; }
+
+  @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2,1fr); } .week-summary { grid-template-columns: repeat(2,1fr); } }
 </style>
 </head>
 <body>
@@ -108,6 +118,10 @@
   </div>
   <div id="tab-weeks" style="display:none;">
     <div class="week-tabs" id="weekTabs"></div>
+
+    <!-- ★ Week summary cards (inserted here) -->
+    <div class="week-summary" id="weekSummaryCards"></div>
+
     <div class="card">
       <div class="card-title">Scores this week by student</div>
       <div class="chart-wrap" id="weekChartWrap" style="height:240px;"><canvas id="weekChart"></canvas></div>
@@ -303,7 +317,54 @@ function renderWeekTabs() {
   ).join('');
 }
 
-function selectWeek(w) { currentWeek=w; renderWeekTabs(); renderWeekChart(); }
+function selectWeek(w) { currentWeek=w; renderWeekTabs(); renderWeekSummary(); renderWeekChart(); }
+
+// ★ NEW: render summary cards for the selected week
+function renderWeekSummary() {
+  const ss = studs();
+  const d = gd().filter(r => r.week === currentWeek);
+  const el = document.getElementById('weekSummaryCards');
+  if (!d.length || !ss.length) { el.innerHTML = ''; return; }
+
+  // Per-student overall avg for this week
+  const studentScores = ss.map(s => {
+    const vals = CK.flatMap(k => d.map(r => r.ratings[s]?.[k]).filter(v => v != null && v !== ''));
+    return vals.length ? toPercent(vals.reduce((a,b) => a+b, 0) / vals.length) : null;
+  }).filter(v => v !== null);
+
+  if (!studentScores.length) { el.innerHTML = ''; return; }
+
+  const weekAvg  = Math.round(studentScores.reduce((a,b) => a+b, 0) / studentScores.length);
+  const weekHigh = Math.max(...studentScores);
+  const weekLow  = Math.min(...studentScores);
+  const topStudent = ss[studentScores.indexOf(weekHigh)] || '—';
+
+  // Collab avg for this week
+  const collabVals = d.map(r => r.collab).filter(v => v != null);
+  const collabPct  = collabVals.length ? toPercent(collabVals.reduce((a,b) => a+b, 0) / collabVals.length) : null;
+
+  el.innerHTML = `
+    <div class="metric avg">
+      <div class="metric-label">Week avg</div>
+      <div class="metric-val">${weekAvg}%</div>
+      <div class="metric-sub">across all students</div>
+    </div>
+    <div class="metric high">
+      <div class="metric-label">Highest</div>
+      <div class="metric-val">${weekHigh}%</div>
+      <div class="metric-sub">${topStudent}</div>
+    </div>
+    <div class="metric low">
+      <div class="metric-label">Lowest</div>
+      <div class="metric-val">${weekLow}%</div>
+      <div class="metric-sub">this week</div>
+    </div>
+    <div class="metric resp">
+      <div class="metric-label">Collab score</div>
+      <div class="metric-val">${collabPct !== null ? collabPct + '%' : '—'}</div>
+      <div class="metric-sub">${d.length} response${d.length !== 1 ? 's' : ''}</div>
+    </div>`;
+}
 
 function renderWeekChart() {
   destroy('weekChart');
@@ -331,7 +392,7 @@ function showTab(name,el) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active'); currentTab=name;
   if(name==='students'){renderStudentChart();renderStudentTable();}
-  if(name==='weeks'){renderWeekTabs();renderWeekChart();}
+  if(name==='weeks'){renderWeekTabs();renderWeekSummary();renderWeekChart();}
   if(name==='comments') renderComments();
 }
 
@@ -373,7 +434,7 @@ function exportCSV() {
 function renderAll() {
   renderMetrics(); renderCriteria(); renderCollab();
   if(currentTab==='students'){renderStudentChart();renderStudentTable();}
-  if(currentTab==='weeks'){renderWeekTabs();renderWeekChart();}
+  if(currentTab==='weeks'){renderWeekTabs();renderWeekSummary();renderWeekChart();}
   if(currentTab==='comments') renderComments();
 }
 
