@@ -123,7 +123,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDbymfa2YN5NgMLzbNDyja76ogLHbeswAmAFmPGIe9MbDCNc9olYvCl6VcsecjdqrBwQ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwB1hqdTU6aiSKm_ASCxSYUl-Q9PCda_L-cho-6e7d_GchGyWT3RMtROWCbr7s1nD4Xqw/exec';
 
 const CK = ['contribution','cooperation','focus','role','communicate','accuracy'];
 const CL = ['Contribution','Cooperation','Focus','Role','Communicate','Accuracy'];
@@ -144,22 +144,46 @@ let charts = {};
 async function loadFromSheets() {
   const loading = document.getElementById('loadingMsg');
   if (loading) loading.style.display = 'block';
-  try {
-    const res = await fetch(SCRIPT_URL);
-    const json = await res.json();
-    if (json.status === 'ok' && json.data) {
-      allData = { [activeClassId]: json.data };
-      try { localStorage.setItem('peer_responses_v2', JSON.stringify(allData)); } catch(e) {}
-    }
-  } catch(e) {
-    try {
-      const saved = JSON.parse(localStorage.getItem('peer_responses_v2'));
-      if (saved) allData = saved;
-    } catch(e2) {}
-  }
-  if (loading) loading.style.display = 'none';
-  populateGroupSelect();
-  renderAll();
+  
+  return new Promise((resolve) => {
+    const callbackName = 'peerEvalCallback_' + Date.now();
+    const script = document.createElement('script');
+    
+    window[callbackName] = function(json) {
+      delete window[callbackName];
+      document.body.removeChild(script);
+      if (loading) loading.style.display = 'none';
+      if (json && json.status === 'ok' && json.data) {
+        allData = { [activeClassId]: json.data };
+        try { localStorage.setItem('peer_responses_v2', JSON.stringify(allData)); } catch(e) {}
+      }
+      populateGroupSelect();
+      currentWeek = weeks()[0] || null;
+      renderAll();
+      resolve();
+    };
+    
+    script.src = SCRIPT_URL + '?callback=' + callbackName;
+    script.onerror = function() {
+      delete window[callbackName];
+      if (loading) loading.style.display = 'none';
+      try {
+        const saved = JSON.parse(localStorage.getItem('peer_responses_v2'));
+        if (saved) allData = saved;
+      } catch(e) {}
+      populateGroupSelect();
+      currentWeek = weeks()[0] || null;
+      renderAll();
+      resolve();
+    };
+    document.body.appendChild(script);
+    
+    setTimeout(() => {
+      if (window[callbackName]) {
+        window[callbackName]({status:'ok', data:{}});
+      }
+    }, 10000);
+  });
 }
 
 function classData() { return allData[activeClassId] || {}; }
