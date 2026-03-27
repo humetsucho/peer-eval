@@ -63,6 +63,7 @@
     </div>
     <div class="controls">
       <select id="groupSel" onchange="onGroupChange()"></select>
+      <button class="btn" onclick="loadFromSheets()" title="Reload from Sheets">↻ Reload</button>
       <label class="btn" for="importFile" style="cursor:pointer;">Import JSON</label>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
       <button class="btn dark" onclick="exportCSV()">Export CSV</button>
@@ -72,6 +73,7 @@
   <div class="nav-links">
     <a class="nav-link" href="index.html">← Setup</a>
   </div>
+  <div id="loadingMsg" style="display:none;font-size:13px;color:#888;margin-bottom:1rem;">Loading data from Google Sheets...</div>
 
   <div class="class-tabs-row" id="classTabs"></div>
 
@@ -121,30 +123,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDbymfa2YN5NgMLzbNDyja76ogLHbeswAmAFmPGIe9MbDCNc9olYvCl6VcsecjdqrBwQ/exec';
+
 const CK = ['contribution','cooperation','focus','role','communicate','accuracy'];
 const CL = ['Contribution','Cooperation','Focus','Role','Communicate','Accuracy'];
 const COLORS = ['#1a1a1a','#378ADD','#1D9E75','#D85A30','#7F77DD','#BA7517'];
 
-const SAMPLE = {
-  'c1': {
-    'The Gummy Bears': [
-      { week:1, collab:4, ratings:{ Stefan:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Elisa:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Taylor:{contribution:3,cooperation:4,focus:3,role:3,communicate:4,accuracy:3}, Sarah:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Josie:{contribution:5,cooperation:5,focus:5,role:5,communicate:5,accuracy:5} }, comment:'' },
-      { week:2, collab:4, ratings:{ Stefan:{contribution:4,cooperation:4,focus:5,role:4,communicate:4,accuracy:5}, Elisa:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4}, Taylor:{contribution:4,cooperation:3,focus:4,role:4,communicate:3,accuracy:4}, Sarah:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, Josie:{contribution:4,cooperation:5,focus:4,role:5,communicate:5,accuracy:4} }, comment:'Taylor seemed distracted.' },
-    ]
-  },
-  'c2': {
-    'Group 1': [
-      { week:1, collab:3, ratings:{ Alice:{contribution:3,cooperation:3,focus:4,role:3,communicate:3,accuracy:4}, Bob:{contribution:4,cooperation:4,focus:3,role:4,communicate:4,accuracy:3}, Carol:{contribution:5,cooperation:4,focus:5,role:5,communicate:4,accuracy:5}, David:{contribution:2,cooperation:3,focus:2,role:3,communicate:3,accuracy:3}, Eve:{contribution:4,cooperation:5,focus:4,role:4,communicate:5,accuracy:4} }, comment:'' },
-    ]
-  }
-};
-
-let allData;
-try { allData = JSON.parse(localStorage.getItem('peer_responses_v2')); if(!allData) throw 0; } catch(e) { allData = SAMPLE; }
-
+let allData = {};
 let config;
 try { config = JSON.parse(localStorage.getItem('peer_eval_config_v2')); if(!config) throw 0; } catch(e) {
-  config = { classes: [{ id:'c1', className:'Section 1', semester:'Winter 26' }, { id:'c2', className:'Section 2', semester:'Winter 26' }], activeClass:'c1' };
+  config = { classes: [{ id:'c1', className:'Section 1', semester:'Winter 26', groups:[] }], activeClass:'c1' };
 }
 
 let activeClassId = config.classes[0]?.id || 'c1';
@@ -152,6 +140,27 @@ let currentGroup = '';
 let currentTab = 'overview';
 let currentWeek = null;
 let charts = {};
+
+async function loadFromSheets() {
+  const loading = document.getElementById('loadingMsg');
+  if (loading) loading.style.display = 'block';
+  try {
+    const res = await fetch(SCRIPT_URL);
+    const json = await res.json();
+    if (json.status === 'ok' && json.data) {
+      allData = { [activeClassId]: json.data };
+      try { localStorage.setItem('peer_responses_v2', JSON.stringify(allData)); } catch(e) {}
+    }
+  } catch(e) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('peer_responses_v2'));
+      if (saved) allData = saved;
+    } catch(e2) {}
+  }
+  if (loading) loading.style.display = 'none';
+  populateGroupSelect();
+  renderAll();
+}
 
 function classData() { return allData[activeClassId] || {}; }
 function gd() { return classData()[currentGroup] || []; }
@@ -345,10 +354,8 @@ function renderAll() {
 }
 
 renderClassTabs();
-populateGroupSelect();
 updateSub();
-currentWeek = weeks()[0] || null;
-renderAll();
+loadFromSheets();
 </script>
 </body>
 </html>
