@@ -191,8 +191,7 @@ function renderDone() {
       <div class="done-icon">✓</div>
       <div style="font-size:24px;font-weight:600;margin-bottom:0.5rem;">Submitted!</div>
       <div style="font-size:14px;color:#666;margin-bottom:0.25rem;">${config.groupName} · Week ${state.week}</div>
-      <div style="font-size:13px;color:#999;margin-bottom:2rem;">Thank you for your honest evaluation.</div>
-      <button class="btn" onclick="again()">Submit another week →</button>
+      <div style="font-size:13px;color:#999;">Thank you for your honest evaluation.</div>
     </div>`;
 }
 
@@ -246,7 +245,6 @@ function selectWeek(w) { state.week=w; render(); }
 function setCollab(v) { state.collab=v; render(); }
 function setRating(name,key,val) { if(!state.ratings[name]) state.ratings[name]={}; state.ratings[name][key]=val; render(); }
 function go(dir) { state.step+=dir; render(); }
-function again() { state=fresh(); render(); }
 
 render();
 </script>
