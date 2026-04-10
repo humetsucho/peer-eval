@@ -86,8 +86,8 @@ const FORM_URL = window.location.origin + window.location.pathname.replace('inde
 
 const DEFAULT = {
   classes: [
-    { id: 'c1', className: 'TESP 78 / ENGL 62 — Section 1', semester: 'Winter 26', groups: [{ name: 'The Gummy Bears', students: ['Stefan','Elisa','Taylor','Sarah','Josie'] }] },
-    { id: 'c2', className: 'TESP 78 / ENGL 62 — Section 2', semester: 'Winter 26', groups: [{ name: 'Group 1', students: ['','','','',''] }] },
+    { id: 'c1', className: 'TESP 78 / ENGL 62 — Section 1', semester: 'Winter 26', groups: [{ name: 'The Gummy Bears', students: ['Stefan','Elisa','Taylor','Sarah','Josie',''] }] },
+    { id: 'c2', className: 'TESP 78 / ENGL 62 — Section 2', semester: 'Winter 26', groups: [{ name: 'Group 1', students: ['','','','','',''] }] },
   ],
   activeClass: 'c1'
 };
@@ -139,7 +139,7 @@ function switchClass(id) { data.activeClass = id; render(); }
 
 function addClass() {
   const id = 'c' + Date.now();
-  data.classes.push({ id, className: 'New Class', semester: activeClass().semester, groups: [{ name: 'Group 1', students: ['','','','',''] }] });
+  data.classes.push({ id, className: 'New Class', semester: activeClass().semester, groups: [{ name: 'Group 1', students: ['','','','','',''] }] });
   data.activeClass = id;
   save(); render();
 }
@@ -156,7 +156,7 @@ function updateClassName() { activeClass().className = document.getElementById('
 function updateSemester() { activeClass().semester = document.getElementById('semester').value; }
 function updateGroupName(gi,val) { activeClass().groups[gi].name=val; renderForm(); }
 function updateStudent(gi,si,val) { activeClass().groups[gi].students[si]=val; renderForm(); }
-function addGroup() { activeClass().groups.push({ name:`Group ${activeClass().groups.length+1}`, students:['','','','',''] }); renderForm(); }
+function addGroup() { activeClass().groups.push({ name:`Group ${activeClass().groups.length+1}`, students:['','','','','',''] }); renderForm(); }
 function removeGroup(i) { if(activeClass().groups.length>1){activeClass().groups.splice(i,1);renderForm();} }
 
 function save() { try { localStorage.setItem('peer_eval_config_v2', JSON.stringify(data)); } catch(e){} }
